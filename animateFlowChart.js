@@ -49,11 +49,6 @@ function readCSVFile(){
     }
 }
 
-// var não tão p se usar, substituir por let
-// forEach instead of for loop
-// Utilizar mais const quando não for mais modificar o variable
-// 
-
 function makeColor(nodeID){
 
     var svg = d3.select('body')
@@ -134,7 +129,6 @@ function loadHashMap(){
 
     svg2.each(function (p, j){
 
-        // var strokeWidth = (d3.select(this).style('stroke-width', 4))
         var text = (d3.select(this)).select('text');
 
         if(text.attr('text-anchor') == 'middle'){
