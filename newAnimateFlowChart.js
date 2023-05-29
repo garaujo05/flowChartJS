@@ -5,6 +5,17 @@ var nodesID = new Map();
 
 var edgesID = new Map();
 
+var submitCount = 0;
+
+var weights = {
+    "s": 2,
+    "m": 3,
+    "h": 4,
+    "D": 5,
+    "M": 6,
+    "A": 7
+};
+
 var svgPath = d3.select('body')
 .select('svg')
 .select('g')
@@ -47,17 +58,25 @@ svg.each(function (p, j){
 
             if(text.attr('text-anchor') == 'middle'){
                 let trimmedText = text.text().trim();
+
+                // if(!weights.has(trimmedText[trimmedText.length-1])){
+                //     weights.set(trimmedText[trimmedText.length-1], );
+                // }
+
                 edgesID.set(ID, [temp, trimmedText]);
+                // console.log(trimmedText[trimmedText.length-1]);
+
             }
         }
 
     });
-
 });
 
 function readCSVFile(){
 
     var files = document.querySelector('#file').files;
+
+    console.log(files);
 
     if(files.length > 0){
 
@@ -74,79 +93,108 @@ function readCSVFile(){
             var rowData = csvdata.split(';');
 
             loadCSV(rowData);
+            console.log(CSVMap.size);
+
+            let timeSpent = 500;
 
             for(let i = 1; i < CSVMap.size+1;i++){
-
-                if(CSVMap.get(i).length == 1){
+                // console.log(CSVMap.get(i));
+                if(CSVMap.get(i)[0].length == 1){
                     continue;
                 }
 
-                var path = d3.select('body')
+                let path = d3.select('body')
                 .select('svg')
                 .select('g')
-                .select('#' + edgesID.get(CSVMap.get(i)[0] + " -> " + CSVMap.get(i)[1])[0])
+                .select('#' + edgesID.get(CSVMap.get(i)[0][0] + " -> " + CSVMap.get(i)[0][1])[0])
                 .select('g')
                 .select('a')
                 .select('path');
 
-                const beginning = path.node().getPointAtLength(0);
+                let beginning = path.node().getPointAtLength(0);
 
-                var svg = d3.select('body').select('svg').select('g')
+                let svg = d3.select('body').select('svg').select('g')
                 .append('circle')
                 .attr('id', 'circle' + i)
                 .attr('cx', beginning.x)
                 .attr('cy', beginning.y)
-                .attr('r', '8')
+                .attr('r', '10')
                 .attr('class', 'circle')
                 .attr('stroke', 'none')
                 .attr('fill', 'lightslategray')
                 .attr('fill-opacity', '0.9');
 
-                for(let j = 0; j < CSVMap.get(i).length-1; j++){
+                // console.log(CSVMap.get(i)[1]);
+                timeSpent = (500 + 100*CSVMap.get(i)[1]);
 
-                    path = d3.select('body')
+                for(let j = 0; j < CSVMap.get(i)[0].length-1; j++){
+
+                    let edge = d3.select('body')
                     .select('svg')
                     .select('g')
-                    .select('#' + edgesID.get(CSVMap.get(i)[j] + " -> " + CSVMap.get(i)[j+1])[0])
+                    .select('#' + edgesID.get(CSVMap.get(i)[0][j] + " -> " + CSVMap.get(i)[0][j+1])[0])
                     .select('g')
                     .select('a')
                     .select('path');
 
-                    const totalLength = path.node().getTotalLength();
+                    let totalLength = edge.node().getTotalLength();
+                    // Iniciar baseado no tempo do processo.
 
-                    setTimeout(moveCircle.bind(this, totalLength, edgesID.get(CSVMap.get(i)[j] + " -> " + CSVMap.get(i)[j+1])[0], i), 2500*j);
+                    let time = edgesID.get(CSVMap.get(i)[0][j] + " -> " + CSVMap.get(i)[0][j+1])[1];
+                    // console.log(time);
+ 
+                    let unit = weights[time[time.length-1]];
+
+                    let value = parseInt(time.slice(0,time.length-1));
+                
+                    let animationTime = value/(unit+value) + unit-1;
+
+                    setTimeout(moveCircle.bind(this, totalLength, edgesID.get(CSVMap.get(i)[0][j] + " -> " + CSVMap.get(i)[0][j+1])[0], i, animationTime), timeSpent); 
+                    // console.log(timeSpent);
+
+                    timeSpent += animationTime*1000+500;
 
                 }
+                // console.log(timeSpent);
+
+                id = setTimeout(deleteCircle.bind(this, 'circle' + i), (timeSpent+500)); 
 
             }
-
         }
     }
 }
 
 function loadCSV(rowData){
 
-    var indexOfArray = 0;
-    var valid = true;
-    var count = 0;
+    let indexOfArray = 0;
+    let valid = true;
+    let count = 0;
     let caseReference = rowData[4].trim();
+    let firstEnd = rowData[6];
+    let currentEnd;
+    let multiplier = 0;
+    let granularity = document.querySelector('#number').value;
+    submitCount++;
+    console.log(granularity);
 
-    restartCircles();
+    if(submitCount > 1){
+        restartCircles(id);
+    }
 
-    for(var i = 4; i < rowData.length; i += 4){
+    for(let i = 4; i < rowData.length; i += 4){
     
         
         let caseNumber = rowData[i].trim();
-
+        
         if(nodesID.has(rowData[i+1])){ // Check if node is represented in fluxogram.
         
             if((caseReference == caseNumber) && (CSVMap.has(count))){
                 
                 if(valid){
 
-                    if(edgesID.has(CSVMap.get(count)[indexOfArray] + " -> " + rowData[i+1])){
+                    if(edgesID.has(CSVMap.get(count)[0][indexOfArray] + " -> " + rowData[i+1])){
 
-                        CSVMap.get(count).push(rowData[i+1]);
+                        CSVMap.get(count)[0].push(rowData[i+1]);
                         indexOfArray += 1;
 
                     } else{
@@ -155,9 +203,17 @@ function loadCSV(rowData){
                 }
 
             } else {
+
+                currentEnd = rowData[i+2];
+                // console.log(currentEnd);
+
+                multiplier = timeElapsed(firstEnd, currentEnd, granularity);
+                // console.log(multiplier);
+
                 caseReference = caseNumber;
                 count += 1;
-                CSVMap.set(count, [rowData[i+1]]);
+                // CSVMap.set(count, [rowData[i+1]]);
+                CSVMap.set(count, [[rowData[i+1]], multiplier]);
                 indexOfArray = 0;
                 valid = true;
             }
@@ -165,7 +221,18 @@ function loadCSV(rowData){
     }
 }
 
-function moveCircle(totalLength, edgeID, circleID){
+function timeElapsed(start, end, granularity){
+
+    const firstEnd = new Date(start);
+    const currentEnd = new Date(end);
+
+    const duration = currentEnd.getTime() - firstEnd.getTime();
+
+    return Math.floor(duration /(1000*60*60)/granularity);
+
+}
+
+function moveCircle(totalLength, edgeID, circleID, animationTime){
 
     const svgPath3 = d3.select('body')
         .select('svg')
@@ -183,7 +250,7 @@ function moveCircle(totalLength, edgeID, circleID){
     gsap.to(val, {
     // Animate from distance 0 to the total distance
     distance: totalLength,
-    duration: 2,
+    duration: animationTime,
     // Function call on each frame of the animation
     onUpdate: () => {
 
@@ -196,7 +263,26 @@ function moveCircle(totalLength, edgeID, circleID){
 
 }
 
-function restartCircles(){
+function restartCircles(id){
     var delCircle = d3.selectAll('circle').remove();
+
+    CSVMap = new Map();
+
+    while(id--){
+        window.clearTimeout(id);
+    }
+
+
 }
+
+function deleteCircle(circleId){
+    var del = d3.select('#'+circleId).remove();
+}
+
+
+/*
+
+ */
+
+
 
